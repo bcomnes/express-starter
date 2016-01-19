@@ -1,79 +1,117 @@
 #!/usr/bin/env node
 
-/**
- * Module dependencies.
- */
+var cliclopts = require('cliclopts')
+var minimist = require('minimist')
+var clioptions = require('../lib/clioptions')
+var cliOpts = cliclopts(clioptions)
+var argv = minimist(process.argv.slice(2), cliOpts.options())
+var http = require('http')
+// var https = require('https')
+var alloc = require('tcp-bind')
 
-var app = require('../app');
-var debug = require('debug')('express-starter:server');
-var http = require('http');
+if (argv.help) {
+  console.log('Usage: command [options]')
+  cliOpts.print()
+  console.log('You can also set settings in config.{dev,prod}.json')
+  console.log('or in ./secrets.json')
+  process.exit()
+}
 
-/**
- * Get port from environment and store in Express.
- */
+console.log(argv)
 
-var port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
+// Generate a configuration object
+var conf = require('../lib/configchain')(argv)
+
+var app = require('../app')
+
+// Set up port
+var port = normalizePort(conf.get('port'))
+
+// Enable produciton mode on express
+if (conf.get('env') === 'prod') {
+  console.log('***Production***')
+  app.set('env', 'production')
+  app.enable('view cache')
+  app.disable('verbose errors')
+} else {
+  console.log('***Development***')
+  app.set('env', 'development')
+}
+app.config(conf)
 
 /**
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
+var server = http.createServer(app)
 
-/**
- * Listen on provided port, on all network interfaces.
- */
+// Start the server, handling privilege details
+if (port <= 1024) {
+  console.log('Binding to privileged port ' + port)
+  var fd = alloc(port)
+  server.listen({fd: fd})
+} else {
+  server.listen(port)
+}
+server.on('error', onError)
+server.on('listening', onListening)
 
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+// Drop privileges to desired uid and gid after binding
+// to low numbered port
+if (conf.get('gid')) {
+  console.log('dropping to gid ' + conf.get('gid'))
+  process.setgid(conf.get('gid'))
+}
+if (conf.get('uid')) {
+  console.log('dropping to uid ' + conf.get('uid'))
+  process.setuid(conf.get('gid'))
+}
 
 /**
  * Normalize a port into a number, string, or false.
  */
 
-function normalizePort(val) {
-  var port = parseInt(val, 10);
+function normalizePort (val) {
+  var port = parseInt(val, 10)
 
   if (isNaN(port)) {
     // named pipe
-    return val;
+    return val
   }
 
   if (port >= 0) {
     // port number
-    return port;
+    return port
   }
 
-  return false;
+  return false
 }
 
 /**
  * Event listener for HTTP server "error" event.
  */
 
-function onError(error) {
+function onError (error) {
   if (error.syscall !== 'listen') {
-    throw error;
+    throw error
   }
 
   var bind = typeof port === 'string'
     ? 'Pipe ' + port
-    : 'Port ' + port;
+    : 'Port ' + port
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
-      process.exit(1);
-      break;
+      console.error(bind + ' requires elevated privileges')
+      process.exit(1)
+      break
     case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
-      process.exit(1);
-      break;
+      console.error(bind + ' is already in use')
+      process.exit(1)
+      break
     default:
-      throw error;
+      throw error
   }
 }
 
@@ -81,10 +119,11 @@ function onError(error) {
  * Event listener for HTTP server "listening" event.
  */
 
-function onListening() {
-  var addr = server.address();
+// Event listener for HTTP server "listening" event.
+function onListening () {
+  var addr = server.address()
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
-    : 'port ' + addr.port;
-  debug('Listening on ' + bind);
+    : 'port ' + addr.port
+  console.log('Listening on ' + bind)
 }

@@ -1,0 +1,12 @@
+extends layout
+
+// Mounts at site root when auth is enabled
+
+block content
+  .account
+    if user && user.emails
+      p Logged in as #{user.emails[0].value} (#[a(href="/logout") logout])
+    else
+      a(href='/auth/shopify') Login with your Shopify Account
+  h1= title
+  p Welcome to #{title}
