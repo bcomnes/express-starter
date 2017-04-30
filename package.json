@@ -21,7 +21,7 @@
     "minimist": "^1.2.0",
     "morgan": "^1.6.1",
     "passport": "^0.3.2",
-    "passport-shopify": "0.0.1",
+    "passport-shopify": "0.1.2",
     "serve-favicon": "^2.3.0",
     "tcp-bind": "^1.2.0"
   }
